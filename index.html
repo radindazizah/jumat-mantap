@@ -90,8 +90,8 @@
 <body>
 
 <div class="container">
-    <h2>Akses Undangan Zoom</h2>
-    <p class="subtitle">Masukkan email terdaftar Anda untuk melihat akses masuk</p>
+    <h2>Akses Undangan Zoom Jumat Mantap</h2>
+    <p class="subtitle">Masukkan email yang telah Anda daftarkan di google form untuk melihat akses masuk Zoom</p>
     
     <input type="email" id="emailInput" placeholder="contoh@email.com" required>
     <button onclick="cekUndangan()">Verifikasi Email</button>
@@ -102,8 +102,8 @@
 <script>
     // Konfigurasi Akun Sewa Zoom
     const infoZoom = {
-        link: "https://zoom.us/j/9876543210?pwd=U29hb...", // Ganti dengan Link Zoom Sewaan
-        passcode: "RAHASIA2026" // Ganti dengan Passcode Zoom
+        link: "zoom.us/j/97919341075?pwd=s8ou0CfgpoGJDkSagPvxhM6kxij8Ce.1", // Ganti dengan Link Zoom Sewaan
+        passcode: "mantap2026" // Ganti dengan Passcode Zoom
     };
 
     // Database Kompilasi Master Email Peserta Resmi (Sesi Pagi & Sesi Siang Asli)
@@ -458,6 +458,7 @@
                 <ol>
                     <li>Buka aplikasi Zoom Anda.</li>
                     <li>Sebelum join, <strong>WAJIB</strong> ganti nama tampilan (Display Name) Zoom Anda menjadi: <span class="highlight">${peserta.kode} ${peserta.nama}</span></li>
+                    <li>Meeting ID: 97919341075</strong></li>
                     <li>Gunakan Passcode berikut jika diminta: <strong>${infoZoom.passcode}</strong></li>
                     <li>Host di Waiting Room hanya akan meng-<strong>ACC</strong> peserta yang menggunakan format kode <span class="highlight">${peserta.kode}</span>.</li>
                     <li>Setelah berhasil masuk ke Main Room Zoom, silakan masuk ke salah satu <strong>Breakout Room</strong> sesuai kebutuhan Anda:
