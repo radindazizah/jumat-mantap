@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validasi Undangan Zoom Meeting</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 540px;
+            text-align: center;
+        }
+        h2 { color: #2d3748; margin-bottom: 10px; }
+        p.subtitle { color: #718096; font-size: 14px; margin-bottom: 25px; }
+        input[type="email"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #2b6cb0; }
+        .result-box {
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: left;
+            display: none;
+        }
+        .success { background-color: #f0fff4; border: 1px solid #c6f6d5; color: #22543d; }
+        .error { background-color: #fff5f5; border: 1px solid #fed7d7; color: #742a2a; text-align: center; }
+        .highlight { background: #feebc8; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: #c05621; font-family: monospace; }
+        .room-box {
+            background-color: #edf2f7;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            border-left: 4px solid #4a5568;
+        }
+        .room-title { font-weight: bold; color: #2d3748; margin-bottom: 5px; font-size: 14px; }
+        .room-list { margin: 0; padding-left: 20px; font-size: 13.5px; color: #4a5568; }
+        .btn-zoom {
+            display: inline-block;
+            width: 100%;
+            text-align: center;
+            background-color: #2f855a;
+            color: white;
+            text-decoration: none;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 18px;
+            font-weight: bold;
+            box-sizing: border-box;
+        }
+        .btn-zoom:hover { background-color: #22543d; }
+        ol { padding-left: 20px; margin: 10px 0; font-size: 14px; line-height: 1.6; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Akses Undangan Zoom</h2>
+    <p class="subtitle">Masukkan email terdaftar Anda untuk melihat akses masuk</p>
+    
+    <input type="email" id="emailInput" placeholder="contoh@email.com" required>
+    <button onclick="cekUndangan()">Verifikasi Email</button>
+
+    <div id="result" class="result-box"></div>
+</div>
+
+<script>
+    // Konfigurasi Akun Sewa Zoom
+    const infoZoom = {
+        link: "https://zoom.us/j/9876543210?pwd=U29hb...", // Ganti dengan Link Zoom Sewaan
+        passcode: "RAHASIA2026" // Ganti dengan Passcode Zoom
+    };
+
+    // Database Kompilasi Master Email Peserta Resmi (Sesi Pagi & Sesi Siang Asli)
+    const daftarUndangan = [
+        // === SESI PAGI (1 - 168) ===
+        { email: "ptglobalalamraya@gmail.com", kode: "[INVPAGI-01]", nama: "Johnny" },
+        { email: "riverta.purba@id.wilmar-intl.com", kode: "[INVPAGI-02]", nama: "Fierre Purba" },
+        { email: "poppy.febriani@id.wilmar-intl.com", kode: "[INVPAGI-03]", nama: "Poppy Febriani" },
+        { email: "pdkc-ehs-cilegon@id.wilmar-intl.com", kode: "[INVPAGI-04]", nama: "Afiat Dzulfiqar Kristinanda" },
+        { email: "ujiana.rahayu@lautanairindonesia.com", kode: "[INVPAGI-05]", nama: "Ujiana Tri Rahayu" },
+        { email: "santri.nabilah@kaltimmethanol.com", kode: "[INVPAGI-06]", nama: "Santri Nabilah" },
+        { email: "endina.nuranisa@gmail.com", kode: "[INVPAGI-07]", nama: "Endina" },
+        { email: "lh@nonferindoutama.com", kode: "[INVPAGI-08]", nama: "Agus Wasana" },
+        { email: "pch8@ogawa-ogi.net", kode: "[INVPAGI-09]", nama: "Khoirudin Irvandi" },
+        { email: "aisahsiti180619@gmail.com", kode: "[INVPAGI-10]", nama: "Siti Aisah" },
+        { email: "hse@ptkds.co.id", kode: "[INVPAGI-11]", nama: "Silvia Zahra" },
+        { email: "wafiqa.salsanabilla@sg.panasonic.com", kode: "[INVPAGI-12]", nama: "WAFIQA SALSANABILLA" },
+        { email: "hanwakim@cbn.net.id", kode: "[INVPAGI-13]", nama: "Aryani" },
+        { email: "joko.abufaiz1629@gmail.com", kode: "[INVPAGI-14]", nama: "Joko Supriyanto" },
+        { email: "sriutami@pungkookid.com", kode: "[INVPAGI-15]", nama: "Sri Utami" },
+        { email: "lmwpwkt@gmail.com", kode: "[INVPAGI-16]", nama: "Nopebri Ade Candra" },
+        { email: "farraskurniawan7@gmail.com", kode: "[INVPAGI-17]", nama: "Farras Kurniawan" },
+        { email: "enriconurdin@gmail.com", kode: "[INVPAGI-18]", nama: "Enrico Putra Nurdin" },
+        { email: "muhammadalfarizialaziz@gmail.com", kode: "[INVPAGI-19]", nama: "MUHAMMAD ALFARIZI AL AZIZ" },
+        { email: "dodik.choiron@gmail.com", kode: "[INVPAGI-20]", nama: "Dodik Choiron" },
+        { email: "wendi.zikri@pln.co.id", kode: "[INVPAGI-21]", nama: "Wendi Zikri Arma" },
+        { email: "retno.anggraeni@kangean-energy.com", kode: "[INVPAGI-22]", nama: "Retno" },
+        { email: "juliani.pratiwi@akii.co.id", kode: "[INVPAGI-23]", nama: "JULIANI PRATIWI" },
+        { email: "phewmo.enviro1@pertamina.com", kode: "[INVPAGI-24]", nama: "Putri Alipina Icha S" },
+        { email: "es.k1@kmk.co.id", kode: "[INVPAGI-25]", nama: "Indah" },
+        { email: "es.im@kmk.co.id", kode: "[INVPAGI-26]", nama: "NANDA ARIYATANTI" },
+        { email: "ismy.islamiyati@id.wilmar-intl.com", kode: "[INVPAGI-27]", nama: "Ismy Islamiyati" },
+        { email: "fransiskusagung.work@gmail.com", kode: "[INVPAGI-28]", nama: "Agung Santoso Wibowo" },
+        { email: "ulyaberyndra27@gmail.com", kode: "[INVPAGI-29]", nama: "Ulya Putri Beryndra" },
+        { email: "daffa.putra@pertamina.com", kode: "[INVPAGI-30]", nama: "Daffa Reyhan A.P" },
+        { email: "raihangrove61@gmail.com", kode: "[INVPAGI-31]", nama: "Ahmad Raihan" },
+        { email: "hrgau1.spindo@gmail.com", kode: "[INVPAGI-32]", nama: "Dhimas R" },
+        { email: "ga01@sango-id.co.id", kode: "[INVPAGI-33]", nama: "Ibnu Fauzan" },
+        { email: "mk.yudit.purwaningrum@mitrakerja.pertamina.com", kode: "[INVPAGI-34]", nama: "Yudit Ratania P" },
+        { email: "lingkunganpt.mas@gmail.com", kode: "[INVPAGI-35]", nama: "wahyu okta dinata" },
+        { email: "asiatmsby@gmail.com", kode: "[INVPAGI-36]", nama: "Jimmy" },
+        { email: "cr.health@pratama.net", kode: "[INVPAGI-37]", nama: "Iita Nuri" },
+        { email: "safety@aaslaboratory.com", kode: "[INVPAGI-38]", nama: "Tri Saputra" },
+        { email: "nurdiasramadhani@gmail.com", kode: "[INVPAGI-39]", nama: "Nurdias Ramadhani" },
+        { email: "hariyatmoko_dwi@ijtt-id.com", kode: "[INVPAGI-40]", nama: "Dwi Harihyatmoko" },
+        { email: "legalmaximindowood@gmail.com", kode: "[INVPAGI-41]", nama: "Ida Fitriani" },
+        { email: "greco.safety@yahoo.com", kode: "[INVPAGI-42]", nama: "Feni Safrida" },
+        { email: "fatimah.nurrohmah@bmjpaperpack.com", kode: "[INVPAGI-43]", nama: "Fatimah Nur R" },
+        { email: "divalkhansa@gmail.com", kode: "[INVPAGI-44]", nama: "Diva Al Khansa" },
+        { email: "saifulmustofa521@gmail.com", kode: "[INVPAGI-44]", nama: "saiful mustofa" },
+        { email: "randi.hrd@matapel.com", kode: "[INVPAGI-46]", nama: "Randi" },
+        { email: "dak@vci.co.id", kode: "[INVPAGI-47]", nama: "Diah Aldina K" },
+        { email: "galuh@kasai-group.com", kode: "[INVPAGI-48]", nama: "Galuh Aspuri Setyo Aji" },
+        { email: "yonathan.nugroho@simp.co.id", kode: "[INVPAGI-49]", nama: "Yonathan Nugroho" },
+        { email: "supplychain@dipalabs.com", kode: "[INVPAGI-50]", nama: "Fatimatuz Zahrok" },
+        { email: "aryaenv@gmail.com", kode: "[INVPAGI-51]", nama: "Aryia Guna" },
+        { email: "atikrizkiani17@gmail.com", kode: "[INVPAGI-52]", nama: "Atik Rizkiani" },
+        { email: "ilestari@phillipsfoods.com", kode: "[INVPAGI-53]", nama: "Iin Winda Lestari" },
+        { email: "muhammadfarhan07.mfa@gmail.com", kode: "[INVPAGI-54]", nama: "Farhan" },
+        { email: "yudhi.handoko@givaudan.com", kode: "[INVPAGI-55]", nama: "Yudhi Handoko" },
+        { email: "muliadi.snagroup@gmail.com", kode: "[INVPAGI-56]", nama: "muliadi" },
+        { email: "rheindra.setiawan@semenbima.com", kode: "[INVPAGI-57]", nama: "Rheindra" },
+        { email: "aditya.wirawan@indocement.co.id", kode: "[INVPAGI-58]", nama: "Aditya Eka" },
+        { email: "klabqc@gmail.com", kode: "[INVPAGI-59]", nama: "B. Dwi Hindras" },
+        { email: "fazlur.rahman@dsspower.co.id", kode: "[INVPAGI-60]", nama: "FAZLUR" },
+        { email: "adm.hse@bakriemetal.co.id", kode: "[INVPAGI-61]", nama: "Andre Ashari" },
+        { email: "hse.semasi@semasi.com", kode: "[INVPAGI-62]", nama: "Eneng Astuti" },
+        { email: "niko.dwi@dayasa.co.id", kode: "[INVPAGI-63]", nama: "Niko Dwi Supri Atmoko" },
+        { email: "sefrinuryadi310@gmail.com", kode: "[INVPAGI-64]", nama: "Sefri Nuryadi" },
+        { email: "rizqi.arvianty@id.panasonic.com", kode: "[INVPAGI-65]", nama: "Rizqi Arvianty" },
+        { email: "algiyan.toni15082001@gmail.com", kode: "[INVPAGI-66]", nama: "Algiyan Toni" },
+        { email: "berlianalarsson@gmail.com", kode: "[INVPAGI-67]", nama: "Berliana Putri Agustina" },
+        { email: "annisa.zahra@chingluh.com", kode: "[INVPAGI-68]", nama: "Annisa Desnia Zahra" },
+        { email: "rahmadgdrive123@gmail.com", kode: "[INVPAGI-69]", nama: "Rahmad Eka Saputra" },
+        { email: "lanan.s@sugin.co.id", kode: "[INVPAGI-70]", nama: "Hanan Sulaeman" },
+        { email: "prayogahari03@gmail.com", kode: "[INVPAGI-71]", nama: "Hari Prayoga" },
+        { email: "staf_perijinan@samator.com", kode: "[INVPAGI-72]", nama: "Rini / Rizky" },
+        { email: "hsm.ra@yahoo.com", kode: "[INVPAGI-73]", nama: "Marlina" },
+        { email: "mediana.puspita@chingluh.com", kode: "[INVPAGI-74]", nama: "Mediana Puspita Sari" },
+        { email: "nindia.anggela@chingluh.com", kode: "[INVPAGI-75]", nama: "Nindia Anggela" },
+        { email: "yesayasyahkata@site-sbs.com", kode: "[INVPAGI-76]", nama: "YESAYA SYAHKATA" },
+        { email: "mochamad_faozi@arnotts.com", kode: "[INVPAGI-77]", nama: "Mochamad Faozi" },
+        { email: "wastehokben@gmail.com", kode: "[INVPAGI-78]", nama: "Andreas Harison Manurung" },
+        { email: "desi@bwi.co.id", kode: "[INVPAGI-79]", nama: "Desi Andriani Bancin" },
+        { email: "rickysetiawan8010@gmail.com", kode: "[INVPAGI-80]", nama: "Ricky Setiawan" },
+        { email: "control@deltajkt.co.id", kode: "[INVPAGI-81]", nama: "Shintani Tinambunan" },
+        { email: "rachmawana@gmail.com", kode: "[INVPAGI-82]", nama: "Aditiya Rachmawan" },
+        { email: "doni@dntindonesia.com", kode: "[INVPAGI-83]", nama: "Donni Ariwibowo" },
+        { email: "irfan.arliansyah@unitedcan.com", kode: "[INVPAGI-84]", nama: "Irfan Arliansyah" },
+        { email: "huwaidi@shokubai.co.id", kode: "[INVPAGI-85]", nama: "Hudzaifah Huwaidi" },
+        { email: "staf.hse@indotaichen.com", kode: "[INVPAGI-86]", nama: "Siska" },
+        { email: "graceliaputria@gmail.com", kode: "[INVPAGI-87]", nama: "Gracelia Putri Ammelia" },
+        { email: "hydrine.irawadi@pertamina.com", kode: "[INVPAGI-88]", nama: "Hydrine Irawadi" },
+        { email: "ga@kinghalim.com", kode: "[INVPAGI-89]", nama: "Moch. Rizal efendi" },
+        { email: "auliaakbaro@gmail.com", kode: "[INVPAGI-90]", nama: "Aulia Akbaro" },
+        { email: "sindualan97@gmail.com", kode: "[INVPAGI-91]", nama: "Krisna Sindu Alan" },
+        { email: "saparuddinpanjaitan331@gmail.com", kode: "[INVPAGI-92]", nama: "Safaruddin Panjaitan" },
+        { email: "junia@sambu.co.id", kode: "[INVPAGI-93]", nama: "Anggra Junia" },
+        { email: "sri.nasution@kiranamegatara.com", kode: "[INVPAGI-94]", nama: "Sri Mei Suzannah Nasution" },
+        { email: "sigit.sugiharto@amns.in", kode: "[INVPAGI-95]", nama: "Sigit sugiharto" },
+        { email: "martaromian@gmail.com", kode: "[INVPAGI-96]", nama: "Marta" },
+        { email: "bayu.smith@rlu.co.id", kode: "[INVPAGI-97]", nama: "Bayu Lumban Gaol" },
+        { email: "standini@bukitasam.co.id", kode: "[INVPAGI-98]", nama: "Shinta Tresia Andini" },
+        { email: "wiratamaardi@gmail.com", kode: "[INVPAGI-99]", nama: "Nurlela Latif" },
+        { email: "felix@bintanggasing.com", kode: "[INVPAGI-100]", nama: "Felix Triyadi" },
+        { email: "rynaldinadapdap.123@gmail.com", kode: "[INVPAGI-101]", nama: "Rynakdi Nadapdap, ST" },
+        { email: "agustinaderisma@gmail.com", kode: "[INVPAGI-102]", nama: "ADE RISMA AGUSTIN" },
+        { email: "kunaifi.hasan@sulfindo.com", kode: "[INVPAGI-103]", nama: "Kunaifi Hasan" },
+        { email: "festronik@putramadusegara.co.id", kode: "[INVPAGI-104]", nama: "Meida Khairunnisa" },
+        { email: "sumadibarat1@gmail.com", kode: "[INVPAGI-105]", nama: "Sumadi" },
+        { email: "wulandari3394@gmail.com", kode: "[INVPAGI-106]", nama: "Wulandari" },
+        { email: "agussudarto68mm@gmail.com", kode: "[INVPAGI-107]", nama: "Agus Sudarto" },
+        { email: "vinanti.saskia@suzuki.co.id", kode: "[INVPAGI-108]", nama: "Vinanti Nurul Saskia" },
+        { email: "hutagalungmeri@gmail.com", kode: "[INVPAGI-109]", nama: "Meri Rebeka" },
+        { email: "ihwan999777@gmail.com", kode: "[INVPAGI-110]", nama: "0821 8050 9994" },
+        { email: "johan.firmanda.j8f@asv.ajinomoto.com", kode: "[INVPAGI-111]", nama: "Johan Firmanda" },
+        { email: "randyka.nugraha@agincourtresources.com", kode: "[INVPAGI-112]", nama: "Randyka Septa Nugraha" },
+        { email: "bagus@dmcti.co.id", kode: "[INVPAGI-113]", nama: "ADE BAGUS SANTOSO" },
+        { email: "dionysiusiwang110@gmail.com", kode: "[INVPAGI-114]", nama: "Dionysius Iwang" },
+        { email: "adminhse@rohulenergiind.co.id", kode: "[INVPAGI-115]", nama: "Emil Emirat Umar" },
+        { email: "aderivaldi97@gmail.com", kode: "[INVPAGI-116]", nama: "Ade Rivaldi Christison Nainggolan" },
+        { email: "nurulita1301@gmail.com", kode: "[INVPAGI-117]", nama: "Nurulita Khaerani Rizky" },
+        { email: "firnanabila@gmail.com", kode: "[INVPAGI-118]", nama: "Firna Nabila" },
+        { email: "hanannaseemsamir@gmail.com", kode: "[INVPAGI-119]", nama: "NANANG YUNIANTO" },
+        { email: "arifa.arida91@gmail.com", kode: "[INVPAGI-120]", nama: "Arifati Munfarida" },
+        { email: "firda@ktng.co.id", kode: "[INVPAGI-121]", nama: "Firda" },
+        { email: "nde.malik.mi@gmail.com", kode: "[INVPAGI-122]", nama: "Abdul Malik Ibrahim" },
+        { email: "teodorusgun@gmail.com", kode: "[INVPAGI-123]", nama: "Teodorus Gun Juan" },
+        { email: "abdulloh_m@pusri.co.id", kode: "[INVPAGI-124]", nama: "Abd. Muzakky" },
+        { email: "ichaoktavia986@gmail.co", kode: "[INVPAGI-125]", nama: "Icha Dwiyana Oktavia" },
+        { email: "uglingkungan@gmail.com", kode: "[INVPAGI-126]", nama: "LAILA DINIATI" },
+        { email: "tatu.indira@gmail.com", kode: "[INVPAGI-127]", nama: "Tatu Indira K" },
+        { email: "lintanglarasati97@gmail.com", kode: "[INVPAGI-128]", nama: "Lintang Larasati" },
+        { email: "zidanbyusuf@gmail.com", kode: "[INVPAGI-129]", nama: "Zidan Badruddin Yusuf" },
+        { email: "pksp.kaltim@gmail.com", kode: "[INVPAGI-130]", nama: "Ahmad Jalali Jalalludin" },
+        { email: "muhammad.farid@lotte.net", kode: "[INVPAGI-131]", nama: "Muhammad Farid Thahir" },
+        { email: "snogenindonesia.hrd@gmail.com", kode: "[INVPAGI-132]", nama: "Mohamad Hamdani" },
+        { email: "dinariana.dm30@gmail.com", kode: "[INVPAGI-133]", nama: "Dina Mariana" },
+        { email: "fahmi-muhammad@jsgi.co.id", kode: "[INVPAGI-134]", nama: "Fahmi Muhammad" },
+        { email: "muhshafrizani@gmail.com", kode: "[INVPAGI-135]", nama: "Muhammad Shafwan Rizani" },
+        { email: "fikaheldiyani@gmail.com", kode: "[INVPAGI-136]", nama: "Fika Heldyani" },
+        { email: "stnbllh777@gmail.com", kode: "[INVPAGI-137]", nama: "siti nabillah febrianti" },
+        { email: "hrd.angganakurniaputa@gmail.com", kode: "[INVPAGI-138]", nama: "Rifa Siwi Nadhifah" },
+        { email: "ahmad.zahiri@guentner.com", kode: "[INVPAGI-139]", nama: "Ahmad Yusron Zahiri" },
+        { email: "nurzehan.maulidyawati@indomilk.com", kode: "[INVPAGI-140]", nama: "Nurzehan Maulidyawati" },
+        { email: "wahana.athabarri@cirebonpower.co.id", kode: "[INVPAGI-141]", nama: "Wahana A" },
+        { email: "abp1.hse@ptabp.co.id", kode: "[INVPAGI-142]", nama: "Efni Hidayat" },
+        { email: "fkhairani@slb.com", kode: "[INVPAGI-143]", nama: "Fatatulkhairani" },
+        { email: "aninditapcws@gmail.com", kode: "[INVPAGI-144]", nama: "Anindita" },
+        { email: "sartika.1799@sig.id", kode: "[INVPAGI-145]", nama: "Sartika" },
+        { email: "angelinaprisilia8893@gmail.com", kode: "[INVPAGI-146]", nama: "anggelina prisilia" },
+        { email: "rama.gustiara@cp.co.id", kode: "[INVPAGI-147]", nama: "Rama Gustiara" },
+        { email: "yozart@thn.co.id", kode: "[INVPAGI-148]", nama: "Yozart Yafattah" },
+        { email: "diansuryanitanjung@ymail.com", kode: "[INVPAGI-149]", nama: "DIAN" },
+        { email: "qhse@nusahadi.co.id", kode: "[INVPAGI-150]", nama: "Basuki Rahmat" },
+        { email: "pt.karsa.primapermata.nusa@gmail.com", kode: "[INVPAGI-151]", nama: "Masni Friska Sipayung" },
+        { email: "roichan@sekarlaut.com", kode: "[INVPAGI-152]", nama: "Roichan & Anang B." },
+        { email: "wie_soviarani@yahoo.com", kode: "[INVPAGI-153]", nama: "Dewi" },
+        { email: "hsek3tspm@gmail.com", kode: "[INVPAGI-154]", nama: "MUSLIH ABDUL MAJID" },
+        { email: "cucu.solihat87@gmail.com", kode: "[INVPAGI-155]", nama: "Cucu Solihat" },
+        { email: "ivan.junius02@gmail.com", kode: "[INVPAGI-156]", nama: "Ivan Junius" },
+        { email: "rachmasarivivi@gmail.com", kode: "[INVPAGI-157]", nama: "Vivi Diwanti Rachmasari" },
+        { email: "sml.majalaya24@gmail.com", kode: "[INVPAGI-158]", nama: "sri mulyani" },
+        { email: "hseindonesiaroyalpaper@gmail.com", kode: "[INVPAGI-159]", nama: "Ikhsanul Hakim" },
+        { email: "putri.amalaili.8m@hirose-gl.com", kode: "[INVPAGI-160]", nama: "Putri Amalaili Setioningtyas" },
+        { email: "teuku.mkautsar@gmail.com", kode: "[INVPAGI-161]", nama: "T M Kautsar" },
+        { email: "nanda.septia850@gmail.com", kode: "[INVPAGI-162]", nama: "Nanda" },
+        { email: "dhiba.sadali@plnindoridlatamapower.co.id", kode: "[INVPAGI-163]", nama: "DHIBA SHAFIRA ERIANA SADALI" },
+        { email: "keslingaliahospitaldepok@gmail.com", kode: "[INVPAGI-164]", nama: "Fariqoh Mumtahanah Karuni" },
+        { email: "na.wafiqohr@fcc-indonesia.com", kode: "[INVPAGI-165]", nama: "Nur Azizah Wafiqoh Robbani" },
+        { email: "inurhadi@phillipsfoods.com", kode: "[INVPAGI-166]", nama: "Iqjal Nurhadi" },
+        { email: "rizga.natama93@gmail.com", kode: "[INVPAGI-167]", nama: "Rizga Mesta Natama" },
+        { email: "budimanmastex@gmail.com", kode: "[INVPAGI-168]", nama: "Budiman" },
+
+        // === SESI SIANG (1 - 157) ===
+        { email: "levana.tiopei@id.wilmar-intl.com", kode: "[INVSIANG-01]", nama: "LEVANA" },
+        { email: "heri.fahmi@id.wilmar-intl.com", kode: "[INVSIANG-02]", nama: "Heri Pahmi" },
+        { email: "risetiawan.saleh@id.wilmar-intl.com", kode: "[INVSIANG-03]", nama: "ARI SETIAWAN" },
+        { email: "sofyan.siagian@id.wilmar-intl.com", kode: "[INVSIANG-04]", nama: "Sofyan Hakim S" },
+        { email: "sofyan.siagian@if.wilmat-intl.com", kode: "[INVSIANG-05]", nama: "Sofyan" },
+        { email: "sri.ramayan@id.wilmar-intl.com", kode: "[INVSIANG-06]", nama: "Maya" },
+        { email: "april.pidbt@sg.panasonic.com", kode: "[INVSIANG-07]", nama: "April" },
+        { email: "galuhlolitasari@gmail.com", kode: "[INVSIANG-08]", nama: "Galuh Lolitasari" },
+        { email: "diniaryayy@gmail.com", kode: "[INVSIANG-09]", nama: "Dini Arya Puspita Ningrum" },
+        { email: "justinwinardi81@gmail.com", kode: "[INVSIANG-10]", nama: "Justin" },
+        { email: "admin-ga@iwatani.co.id", kode: "[INVSIANG-11]", nama: "Tri Mulyanto" },
+        { email: "khoirul.ludfi@saspower.id", kode: "[INVSIANG-12]", nama: "Muhammad Khoirul Ludfi" },
+        { email: "abdulharisromadlona@gmail.com", kode: "[INVSIANG-13]", nama: "Abdul Haris Romadlona" },
+        { email: "khaerulhamdani21@gmail.com", kode: "[INVSIANG-14]", nama: "Khaerul Hamdani" },
+        { email: "reyzanh@gmail.com", kode: "[INVSIANG-15]", nama: "Reyzan Aditya Hafidz" },
+        { email: "singgih.nurdin@kppmining.com", kode: "[INVSIANG-16]", nama: "Singgih Ali Nurdin" },
+        { email: "arijanuar.rizkia@gmail.com", kode: "[INVSIANG-17]", nama: "Ari Januar Rizkia" },
+        { email: "donny.hermawan@dsngroup.co.id", kode: "[INVSIANG-18]", nama: "Donny Hermawan" },
+        { email: "ga.admbbl@gmail.com", kode: "[INVSIANG-19]", nama: "Safrida" },
+        { email: "pelitabehaestex@gmail.com", kode: "[INVSIANG-20]", nama: "Rizky Nur Indah Sya'baniyah" },
+        { email: "dinar.chem.eng@gmail.com", kode: "[INVSIANG-21]", nama: "Eki Dinar Ramadhani" },
+        { email: "lailaarinarf@gmail.com", kode: "[INVSIANG-22]", nama: "Laila Arin Arfiana" },
+        { email: "destianf@scg.com", kode: "[INVSIANG-23]", nama: "Destiana Fauziah" },
+        { email: "logistik@aaslaboratory.com", kode: "[INVSIANG-24]", nama: "FARSYA DIVA AZKALETA" },
+        { email: "axelmhrdk@gmail.com", kode: "[INVSIANG-25]", nama: "Axel Priya Mahardika" },
+        { email: "triyono@dac.co.id", kode: "[INVSIANG-26]", nama: "Triyono Sutanto" },
+        { email: "vivi@pttomatec.com", kode: "[INVSIANG-27]", nama: "VIVI" },
+        { email: "yevzzt@gmail.com", kode: "[INVSIANG-28]", nama: "Yevan Okta Wifarulah" },
+        { email: "jovivito9@gmail.com", kode: "[INVSIANG-29]", nama: "Don Vito" },
+        { email: "teguh@angi.co.id", kode: "[INVSIANG-30]", nama: "Teguh SB" },
+        { email: "rifkasaputri@gmail.com", kode: "[INVSIANG-31]", nama: "Ripka Saputri" },
+        { email: "diah.e.oktavikasari@exxonmobil.com", kode: "[INVSIANG-32]", nama: "Diah Eryun" },
+        { email: "claraaldetha26@gmail.com", kode: "[INVSIANG-33]", nama: "Clara Christy Aldetha Putri" },
+        { email: "wildanshri21@gmail.com", kode: "[INVSIANG-34]", nama: "Wildan Sahari" },
+        { email: "valiana.mugi@suzuki.co.id", kode: "[INVSIANG-35]", nama: "Valiana Mugi Rahayu" },
+        { email: "riyadi.may02@gmail.com", kode: "[INVSIANG-36]", nama: "Riyadi" },
+        { email: "umum.jenshiang@gmail.com", kode: "[INVSIANG-37]", nama: "Halijah Dona Kiki" },
+        { email: "carolineagustina168@gmail.com", kode: "[INVSIANG-38]", nama: "Caroline Agung" },
+        { email: "frisma.arum@dem.dharmap.com", kode: "[INVSIANG-39]", nama: "Frisma Puspita Arum" },
+        { email: "emma@sakaiindonesia.co.id", kode: "[INVSIANG-40]", nama: "Emma Sukma Maharani" },
+        { email: "ridwansyah@rapidplast.id", kode: "[INVSIANG-41]", nama: "MUHAMMAD RIDWANSYAH" },
+        { email: "wpr_factory@yahoo.com", kode: "[INVSIANG-42]", nama: "ADNAN" },
+        { email: "alimaxpdd5@gmail.com", kode: "[INVSIANG-43]", nama: "Alima" },
+        { email: "vika.indriani1996@gmail.com", kode: "[INVSIANG-44]", nama: "Vika Indriani" },
+        { email: "faisaljamaluddin16@gmail.com", kode: "[INVSIANG-45]", nama: "Faisal Jamaluddin" },
+        { email: "reza.jamhuri@ptabp.co.id", kode: "[INVSIANG-46]", nama: "Mohd. Reza Jamhuri" },
+        { email: "edyarmansyah3@gmail.com", kode: "[INVSIANG-47]", nama: "Edy Armansyah" },
+        { email: "ruri.santyka.rs@gmail.com", kode: "[INVSIANG-48]", nama: "Ruri Santyka. P" },
+        { email: "ehs@handal-idmotor.com", kode: "[INVSIANG-49]", nama: "Sugeng Riyadi" },
+        { email: "secretariatij@gmail.com", kode: "[INVSIANG-50]", nama: "Rina Lestari" },
+        { email: "resi-deska@unicharm.com", kode: "[INVSIANG-51]", nama: "Resi Novri Deska" },
+        { email: "ferawati.a2s@ap.denso.com", kode: "[INVSIANG-52]", nama: "Ferawati Candra dewi" },
+        { email: "may.salvirosadyanti@gmail.com", kode: "[INVSIANG-53]", nama: "May Salvi Rosa Damayanti" },
+        { email: "operasional@lautansteel.co.id", kode: "[INVSIANG-54]", nama: "maruf" },
+        { email: "hsechairulanwar@gmail.com", kode: "[INVSIANG-55]", nama: "Chairul Anwar" },
+        { email: "christy.jonathan.1806@gmail.com", kode: "[INVSIANG-56]", nama: "Christy" },
+        { email: "muhammad.alhakam@adaro.com", kode: "[INVSIANG-57]", nama: "MUHAMMAD FAATHIR ALHAKAM" },
+        { email: "julianto-inkali@niccachemical.com", kode: "[INVSIANG-58]", nama: "Julianto" },
+        { email: "ekazoldyeck@gmail.com", kode: "[INVSIANG-59]", nama: "Eka" },
+        { email: "enviro2@megamarinepride.com", kode: "[INVSIANG-60]", nama: "Maddhani Saputra" },
+        { email: "suryaweriri@gmail.com", kode: "[INVSIANG-61]", nama: "Surya Weriri" },
+        { email: "wempie.gressangga@bintang7.com", kode: "[INVSIANG-62]", nama: "Wempie Gressangga" },
+        { email: "maxima@issu.co.id", kode: "[INVSIANG-63]", nama: "Maxima Siman" },
+        { email: "christineaa12@gmail.com", kode: "[INVSIANG-64]", nama: "Christine" },
+        { email: "rachelatalya@gmail.com", kode: "[INVSIANG-65]", nama: "Rachel" },
+        { email: "vicky.morghan.richson.muskitta@gmail.com", kode: "[INVSIANG-66]", nama: "Vicky Muskitta" },
+        { email: "mirandasyahputra45@gmail.com", kode: "[INVSIANG-67]", nama: "Miranda Syahputra" },
+        { email: "machriza.bagaswanda@sosro.com", kode: "[INVSIANG-68]", nama: "Machriza Bagaswanda" },
+        { email: "htjdestrianjp@gmail.com", kode: "[INVSIANG-69]", nama: "Destrian Jumanto Prasetio" },
+        { email: "k3.jjp@kpnplantation.com", kode: "[INVSIANG-70]", nama: "Azzah Fizda" },
+        { email: "dimas.kurniawan@ptabp.co.id", kode: "[INVSIANG-71]", nama: "Dimas Kurniawan" },
+        { email: "bambangs801@gmail.com", kode: "[INVSIANG-72]", nama: "Bambang Susilo" },
+        { email: "kiki.setiawan@bridgestone.com", kode: "[INVSIANG-73]", nama: "Kiki Setiawan" },
+        { email: "ransblqs@gmail.com", kode: "[INVSIANG-74]", nama: "Maharani Bilqis" },
+        { email: "gemaza1@kenvue.com", kode: "[INVSIANG-75]", nama: "Gema Zacky Arbi" },
+        { email: "bahrudin@dwiprimarezeky.com", kode: "[INVSIANG-76]", nama: "Bahrudin" },
+        { email: "darma2651@gmail.com", kode: "[INVSIANG-77]", nama: "Eko darma putra" },
+        { email: "fransgunawan888@gmail.com", kode: "[INVSIANG-78]", nama: "Fransiskus Gunawan" },
+        { email: "afan.nugraha@gmail.com", kode: "[INVSIANG-79]", nama: "Ahmad Fath Aziz Nugraha" },
+        { email: "rommy.indra@adaro.com", kode: "[INVSIANG-80]", nama: "Rommy" },
+        { email: "nuryadi296@gmail.com", kode: "[INVSIANG-81]", nama: "Acok Nuryadi" },
+        { email: "vegianggre@gmail.com", kode: "[INVSIANG-82]", nama: "Vegi Anggreani" },
+        { email: "kristianruring6@gmail.com", kode: "[INVSIANG-83]", nama: "Kristian Ruring" },
+        { email: "staff_lingkungan@rdm.co.id", kode: "[INVSIANG-84]", nama: "Gloria" },
+        { email: "hesti.handayani@rspkt.id", kode: "[INVSIANG-85]", nama: "HESTI HANDAYANI" },
+        { email: "riskymmtaz147@gmail.com", kode: "[INVSIANG-86]", nama: "Risky Maulana" },
+        { email: "ajeng.widyakusuma@adaro.com", kode: "[INVSIANG-87]", nama: "Ajeng Widyakusuma" },
+        { email: "hukummawan09@gmail.com", kode: "[INVSIANG-88]", nama: "Hermawan Yasin" },
+        { email: "aryo.pradipta@adaro.com", kode: "[INVSIANG-89]", nama: "Aryo Seno P." },
+        { email: "indra.karisma@tiacoal.co.id", kode: "[INVSIANG-90]", nama: "Indra karisma kurniawan" },
+        { email: "juwitaantoniputrisitorus@gmail.com", kode: "[INVSIANG-91]", nama: "Juwita Sitorus" },
+        { email: "guntur.yudha@bridgestone.com", kode: "[INVSIANG-92]", nama: "M. Guntur Yudha Ramadhanu" },
+        { email: "eltr@ecco.com", kode: "[INVSIANG-93]", nama: "Elisabet Trio Mega" },
+        { email: "ga.stisrp@toto.co.id", kode: "[INVSIANG-94]", nama: "Supriyadi" },
+        { email: "amandaarum.sgb@gmail.com", kode: "[INVSIANG-95]", nama: "Amanda Arum" },
+        { email: "taufik.ib92@gmail.com", kode: "[INVSIANG-96]", nama: "Ahmad Taufik" },
+        { email: "fajrian.rahman@gmail.com", kode: "[INVSIANG-97]", nama: "Noor Fajriani Rahman" },
+        { email: "suari.dwi2@gmail.com", kode: "[INVSIANG-98]", nama: "Suari Dwi Pangudi" },
+        { email: "handes@nppi.co.id", kode: "[INVSIANG-99]", nama: "Handes Fitriyatmoko" },
+        { email: "raissashukma@gmail.com", kode: "[INVSIANG-100]", nama: "Shukma Raissa" },
+        { email: "she@id.nifco.com", kode: "[INVSIANG-101]", nama: "Muhamad Iqbal" },
+        { email: "environment3@jts.co.id", kode: "[INVSIANG-102]", nama: "Firdaus Dien" },
+        { email: "bimowirayudha10@gmail.com", kode: "[INVSIANG-103]", nama: "Bimo Wirayudha Susanto Putro" },
+        { email: "pts-hrd1@sintertech.com", kode: "[INVSIANG-104]", nama: "Diky" },
+        { email: "aldi.rifky@dilmgroup.com", kode: "[INVSIANG-105]", nama: "Aldi Rifky Maulana" },
+        { email: "she@kpid.co.id", kode: "[INVSIANG-106]", nama: "Sidik Permana" },
+        { email: "gandungkartika_ypmi@yamaha-motor.co.id", kode: "[INVSIANG-107]", nama: "Gandung Kartika Tri Nugroho" },
+        { email: "25rafihanif4@gmail.com", kode: "[INVSIANG-108]", nama: "Rafihanif Dimas" },
+        { email: "annisaputriruana@gmail.com", kode: "[INVSIANG-109]", nama: "Annisa Ruana Putri, S.T" },
+        { email: "annisa.nur-fitria@partners.basf.com", kode: "[INVSIANG-110]", nama: "Annisa Nur Fitria" },
+        { email: "minan@phapros.co.id", kode: "[INVSIANG-111]", nama: "Minan Zuhri" },
+        { email: "junkurnia84@gmail.com", kode: "[INVSIANG-112]", nama: "Jujun Kurniawan" },
+        { email: "pt.yonglinindonesia@gmail.com", kode: "[INVSIANG-113]", nama: "Syifa Maulida" },
+        { email: "persadakasmarmatano@gmail.com", kode: "[INVSIANG-114]", nama: "ACHSAN HAYKAL" },
+        { email: "ocveintryonaldo@gmail.com", kode: "[INVSIANG-115]", nama: "Ocvein Tryo Naldo" },
+        { email: "joseph.dwilaksono@bintang7.com", kode: "[INVSIANG-116]", nama: "Joseph Singgih Dwilaksono" },
+        { email: "yuthia.sari@id.wilmar-intl.com", kode: "[INVSIANG-117]", nama: "Yuthia Permata Sari" },
+        { email: "dede.accounting@singwealth.co.id", kode: "[INVSIANG-118]", nama: "dede kurnia" },
+        { email: "muhamadharizakurniawan@gmail.com", kode: "[INVSIANG-119]", nama: "Muhamad Hariza Kurniawan" },
+        { email: "zendi.dewantara@simp.co.id", kode: "[INVSIANG-120]", nama: "Zendi Dewantara" },
+        { email: "sandi.kurniawan@kpnplantation.com", kode: "[INVSIANG-121]", nama: "Sandi Kurniawan" },
+        { email: "hardiantokahar1993@gmail.com", kode: "[INVSIANG-122]", nama: "Hardianto Kahar" },
+        { email: "tamara.bestindo@gmail.com", kode: "[INVSIANG-123]", nama: "Tamara Tanoto" },
+        { email: "arif.jwsmitsuyoshi@gmail.com", kode: "[INVSIANG-124]", nama: "M. Arif Rahman" },
+        { email: "taufanrizky1@gmail.com", kode: "[INVSIANG-125]", nama: "TAUFAN RIZKY" },
+        { email: "tffny.ei@gmail.com", kode: "[INVSIANG-126]", nama: "Tiffany" },
+        { email: "amelia.puspaningrum@mattel.com", kode: "[INVSIANG-127]", nama: "Amelia P N" },
+        { email: "environment.suburtex@gmail.com", kode: "[INVSIANG-128]", nama: "ira eriyanti" },
+        { email: "ppdkilang5gunung@gmail.com", kode: "[INVSIANG-129]", nama: "Elvi Afriyani" },
+        { email: "adityaekawirawan@gmail.com", kode: "[INVSIANG-130]", nama: "Aditya" },
+        { email: "fitrianaputriarista@gmail.com", kode: "[INVSIANG-131]", nama: "Fitriana Putri Arista" },
+        { email: "pksteluksonohutahaean@gmail.com", kode: "[INVSIANG-132]", nama: "Saroha.M.Hutahaean" },
+        { email: "amsar@dunlop.co.id", kode: "[INVSIANG-133]", nama: "Amsar" },
+        { email: "bagusanugrah2505@gmail.com", kode: "[INVSIANG-134]", nama: "Bagus Anugrah" },
+        { email: "rara.saripudin@kordsa.com", kode: "[INVSIANG-135]", nama: "Rara" },
+        { email: "recalana.cool@gmail.com", kode: "[INVSIANG-136]", nama: "Reca Lana" },
+        { email: "wwt@chitose.id", kode: "[INVSIANG-137]", nama: "Fitri Nuzulianti" },
+        { email: "azizah.azizah@infineon.com", kode: "[INVSIANG-138]", nama: "Azizah" },
+        { email: "karinawahyuandriani@gmail.com", kode: "[INVSIANG-139]", nama: "Karina wahyu a" },
+        { email: "srissejahtera@gmail.com", kode: "[INVSIANG-140]", nama: "Sabhan" },
+        { email: "shoiriyah@bounty.co.id", kode: "[INVSIANG-141]", nama: "Siti Hoiriyah" },
+        { email: "endahsugiarto.st@gmail.com", kode: "[INVSIANG-142]", nama: "endah nofianty" },
+        { email: "anndtraniaa@gmail.com", kode: "[INVSIANG-143]", nama: "Rania Anindita" },
+        { email: "brahmanto.al@trias-sentosa.com", kode: "[INVSIANG-144]", nama: "Brahmanto Anggoro Laksono" },
+        { email: "s.aftori@amvagroup.com", kode: "[INVSIANG-145]", nama: "GA Officer" },
+        { email: "sohanah@bli.co.id", kode: "[INVSIANG-146]", nama: "Sohanah" },
+        { email: "kurnia.syaputri@bogasariflour.com", kode: "[INVSIANG-147]", nama: "Kurnia Syaputri" },
+        { email: "agung.ramadhan@bogasariflour.com", kode: "[INVSIANG-148]", nama: "Agung Ramadhan" },
+        { email: "iqamatulhaq.rakayama@bogasariflour.com", kode: "[INVSIANG-149]", nama: "Iqamatulhaq Rakayama" },
+        { email: "roslina@ttec.co.id", kode: "[INVSIANG-150]", nama: "Roslina Wulandhari" },
+        { email: "christian.ihara@gmail.com", kode: "[INVSIANG-151]", nama: "CHRISTIAN" },
+        { email: "mira.yuningsih@lajuperdana.com", kode: "[INVSIANG-152]", nama: "Mira yuningsih" },
+        { email: "shelly@shcp.com.sg", kode: "[INVSIANG-153]", nama: "Shelly" },
+        { email: "heri.she@fujiseat.co.id", kode: "[INVSIANG-154]", nama: "Heri" },
+        { email: "adityahegisaputra02@gmail.com", kode: "[INVSIANG-155]", nama: "Aditya Hegi Saputra" },
+        { email: "bajatamasaranacentral.legal@gmail.com", kode: "[INVSIANG-156]", nama: "Annisa Ivo Novanda" },
+        { email: "luri.a@maruhide.co.id", kode: "[INVSIANG-157]", nama: "Luri Apriyanti" }
+    ];
+
+    function cekUndangan() {
+        const inputEmail = document.getElementById('emailInput').value.trim().toLowerCase();
+        const resultDiv = document.getElementById('result');
+        
+        if (!inputEmail) {
+            alert('Silakan masukkan email terlebih dahulu.');
+            return;
+        }
+
+        const peserta = daftarUndangan.find(p => p.email.toLowerCase() === inputEmail);
+
+        if (peserta) {
+            resultDiv.className = "result-box success";
+            resultDiv.style.display = "block";
+            resultDiv.innerHTML = `
+                <h3 style="margin-top:0;">✔️ Email Terverifikasi!</h3>
+                <p>Halo <strong>${peserta.nama}</strong>, berikut adalah tata cara masuk ruangan:</p>
+                <ol>
+                    <li>Buka aplikasi Zoom Anda.</li>
+                    <li>Sebelum join, <strong>WAJIB</strong> ganti nama tampilan (Display Name) Zoom Anda menjadi: <span class="highlight">${peserta.kode} ${peserta.nama}</span></li>
+                    <li>Gunakan Passcode berikut jika diminta: <strong>${infoZoom.passcode}</strong></li>
+                    <li>Host di Waiting Room hanya akan meng-<strong>ACC</strong> peserta yang menggunakan format kode <span class="highlight">${peserta.kode}</span>.</li>
+                    <li>Setelah berhasil masuk ke Main Room Zoom, silakan masuk ke salah satu <strong>Breakout Room</strong> sesuai kebutuhan Anda:
+                        <div class="room-box">
+                            <div class="room-title">📌 Daftar Room yang Tersedia:</div>
+                            <ul class="room-list">
+                                <li><strong>Room 1:</strong> Registrasi Impor dan Produsen</li>
+                                <li><strong>Room 2:</strong> Notifikasi B3 Terbatas</li>
+                                <li><strong>Room 3:</strong> Rekom Pengangkutan</li>
+                                <li><strong>Room 4:</strong> Pelaporan B3: PILAR</li>
+                            </ul>
+                        </div>
+                    </li>
+                </ol>
+                <a href="${infoZoom.link}" target="_blank" class="btn-zoom">Klik untuk Join Zoom</a>
+            `;
+        } else {
+            resultDiv.className = "result-box error";
+            resultDiv.style.display = "block";
+            resultDiv.innerHTML = `
+                <h3 style="margin-top:0;">❌ Akses Ditolak</h3>
+                <p>Email <strong>${inputEmail}</strong> tidak terdaftar dalam undangan sistem kami. Silakan hubungi panitia jika ada kekeliruan.</p>
+            `;
+        }
+    }
+</script>
+
+</body>
+</html>
