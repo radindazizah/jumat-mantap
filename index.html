@@ -27,8 +27,9 @@
             text-align: center;
         }
         h2 { color: #2d3748; margin-bottom: 10px; }
-        p.subtitle { color: #718096; font-size: 14px; margin-bottom: 25px; }
-        input[type="email"] {
+        p.subtitle { color: #718096; font-size: 14px; margin-bottom: 20px; }
+        label.field { display: block; text-align: left; font-size: 13px; color: #4a5568; margin-bottom: 5px; font-weight: 600; }
+        select, input[type="email"] {
             width: 100%;
             padding: 12px;
             margin-bottom: 15px;
@@ -36,6 +37,7 @@
             border-radius: 6px;
             box-sizing: border-box;
             font-size: 16px;
+            background: #fff;
         }
         button {
             width: 100%;
@@ -49,7 +51,17 @@
             font-weight: bold;
             transition: background 0.2s;
         }
-        button:hover { background-color: #2b6cb0; }
+        button:hover:not(:disabled) { background-color: #2b6cb0; }
+        button:disabled { background-color: #a0aec0; cursor: not-allowed; }
+        .status {
+            font-size: 12.5px;
+            margin: -5px 0 15px;
+            text-align: left;
+            color: #718096;
+        }
+        .status.ok { color: #2f855a; }
+        .status.err { color: #c53030; }
+        .status a { color: #3182ce; cursor: pointer; text-decoration: underline; }
         .result-box {
             margin-top: 25px;
             padding: 20px;
@@ -69,6 +81,16 @@
         }
         .room-title { font-weight: bold; color: #2d3748; margin-bottom: 5px; font-size: 14px; }
         .room-list { margin: 0; padding-left: 20px; font-size: 13.5px; color: #4a5568; }
+        .room-list li.mine { color: #22543d; background: #c6f6d5; border-radius: 4px; padding: 2px 6px; margin-left: -6px; }
+        .reg-box {
+            background: #fff;
+            border: 1px solid #c6f6d5;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin: 10px 0;
+            font-size: 13.5px;
+            line-height: 1.6;
+        }
         .btn-zoom {
             display: inline-block;
             width: 100%;
@@ -91,399 +113,236 @@
 
 <div class="container">
     <h2>Akses Undangan Zoom Jumat Mantap</h2>
-    <p class="subtitle">Masukkan email yang telah Anda daftarkan di google form untuk melihat akses masuk Zoom</p>
-    
+    <p class="subtitle">Pilih tanggal sesi, lalu masukkan email yang telah Anda daftarkan di Google Form untuk melihat akses masuk Zoom</p>
+
+    <label class="field" for="jadwalSelect">Jadwal (Hari Jumat)</label>
+    <select id="jadwalSelect"></select>
+
+    <div id="status" class="status">Memuat daftar peserta...</div>
+
+    <label class="field" for="emailInput">Email terdaftar</label>
     <input type="email" id="emailInput" placeholder="contoh@email.com" required>
-    <button onclick="cekUndangan()">Verifikasi Email</button>
+    <button id="btnCek" onclick="cekUndangan()" disabled>Verifikasi Email</button>
 
     <div id="result" class="result-box"></div>
 </div>
 
 <script>
-    // Konfigurasi Akun Sewa Zoom
-   const infoZoom = {
-    // Tambahkan https:// di awal link
-    link: "https://us06web.zoom.us/j/88545635583?pwd=KNYafGatdQxaZpf2se1zJdbmJHeTIi.1",
-    passcode: "3pilar2026" 
-};
+    // ================== KONFIGURASI ==================
+    const CONFIG = {
+        // ID Google Sheet (bagian antara /d/ dan /edit pada URL)
+        sheetId: "13p_dI1oo6pbMdpujY3Wi2cyUroq5JO_7PV9gkXvfSgg",
+        // Nama tab yang berisi respons Google Form
+        sheetName: "Form Responses 1",
+        // Kolom pada sheet: B=Email, D=Nama Perusahaan, G=Tema, H=Jadwal, I=Sesi
+        kolom: { email: "B", perusahaan: "D", tema: "G", jadwal: "H", sesi: "I" },
+        // Jumlah hari Jumat ke depan yang ditampilkan di pilihan jadwal
+        jumlahJumat: 4
+    };
 
-    // Database Kompilasi Master Email Peserta Resmi (Sesi Pagi & Sesi Siang Asli)
-    const daftarUndangan =
-   [
-  {
-    "no": 1,
-    "email": "fahmimuh17@gmail.com",
-    "kode": "[INV-1]",
-    "nama": "PT Nestle Indonesia"
-  },
-  {
-    "no": 2,
-    "email": "bimajayamanggala@gmail.com",
-    "kode": "[INV-2]",
-    "nama": "PT BIMA JAYA MANGGALA"
-  },
-  {
-    "no": 3,
-    "email": "Assyplast@gmail.com",
-    "kode": "[INV-3]",
-    "nama": "PT SOLO SURYA PLASINDO"
-  },
-  {
-    "no": 4,
-    "email": "rahmirahmawati2909@gmail.com",
-    "kode": "[INV-4]",
-    "nama": "PT. Anaya Global Indonesia"
-  },
-  {
-    "no": 5,
-    "email": "rainylistiawati@yahoo.com",
-    "kode": "[INV-5]",
-    "nama": "CV Sukses Maju Bersama"
-  },
-  {
-    "no": 6,
-    "email": "cntformality@gmail.com",
-    "kode": "[INV-6]",
-    "nama": "Pertamina Patra Niaga"
-  },
-  {
-    "no": 7,
-    "email": "eleonoraicha.rsck@gmail.com",
-    "kode": "[INV-7]",
-    "nama": "PT.YUNTEX"
-  },
-  {
-    "no": 8,
-    "email": "fudinmahfudin0@gmail.com",
-    "kode": "[INV-8]",
-    "nama": "PT. Mustika Abdi Nirwan"
-  },
-  {
-    "no": 9,
-    "email": "kismiazi14@gmail.com",
-    "kode": "[INV-9]",
-    "nama": "Unilever"
-  },
-  {
-    "no": 10,
-    "email": "ali.irzan@bkpprima.co.id",
-    "kode": "[INV-10]",
-    "nama": "PT Bina Karya Prima"
-  },
-  {
-    "no": 11,
-    "email": "i.dwiguna@mitsui.com",
-    "kode": "[INV-11]",
-    "nama": "PT Mitsui Indonesia"
-  },
-  {
-    "no": 12,
-    "email": "rainylistiawati@yahoo.com",
-    "kode": "[INV-12]",
-    "nama": "CV Sukses Maju Bersama"
-  },
-  {
-    "no": 13,
-    "email": "rainylistiawati@yahoo.com",
-    "kode": "[INV-13]",
-    "nama": "CV Sukses Maju Bersama"
-  },
-  {
-    "no": 14,
-    "email": "novikadewidewi@gmail.com",
-    "kode": "[INV-14]",
-    "nama": "PT. Tirta Abadi Lestari Idexindo"
-  },
-  {
-    "no": 15,
-    "email": "Londry@jumbopower.com",
-    "kode": "[INV-15]",
-    "nama": "PT. Jumbo Power International"
-  },
-  {
-    "no": 16,
-    "email": "lana.tokyoconsulting@gmail.com",
-    "kode": "[INV-16]",
-    "nama": "PT TOKYO CONSULTING (mewakili klien)"
-  },
-  {
-    "no": 17,
-    "email": "she@aii-corp.com",
-    "kode": "[INV-17]",
-    "nama": "PT. AKTIF INDONESIA INDAH"
-  },
-  {
-    "no": 18,
-    "email": "nudia.rahmania@gmail.com",
-    "kode": "[INV-18]",
-    "nama": "PT Tri Sakti Purwosari Makmur"
-  },
-  {
-    "no": 19,
-    "email": "legal.stal@mmstal.com",
-    "kode": "[INV-19]",
-    "nama": "PT. Sinar Transindomitra Abadi Logistik"
-  },
-  {
-    "no": 20,
-    "email": "legal.mms@mmstal.com",
-    "kode": "[INV-20]",
-    "nama": "PT Multisukses Mitra Sejati"
-  },
-  {
-    "no": 21,
-    "email": "tiaamelia.pratiwi@gmail.com",
-    "kode": "[INV-21]",
-    "nama": "PT. Pamolite Adhesive Industry"
-  },
-  {
-    "no": 22,
-    "email": "t_lasmono@yahoo.com",
-    "kode": "[INV-22]",
-    "nama": "PT. SEMARANG MAKMUR"
-  },
-  {
-    "no": 23,
-    "email": "adhgust@gmail.com",
-    "kode": "[INV-23]",
-    "nama": "PT Semarang Makmur"
-  },
-  {
-    "no": 24,
-    "email": "benget@cakraindo.com",
-    "kode": "[INV-24]",
-    "nama": "PT Cakraindo Mitra Internasional"
-  },
-  {
-    "no": 25,
-    "email": "salesmarketing.toya@gmail.com",
-    "kode": "[INV-25]",
-    "nama": "PT TOYA ARUM LESTARI"
-  },
-  {
-    "no": 26,
-    "email": "pengadaanluarnegeri@ptppi.co.id",
-    "kode": "[INV-26]",
-    "nama": "PT Perusahaan Perdagangan Indonesia"
-  },
-  {
-    "no": 27,
-    "email": "alga@global-trans.co.id",
-    "kode": "[INV-27]",
-    "nama": "PT. GLOBAL TRANS SERVINDO"
-  },
-  {
-    "no": 28,
-    "email": "ga@indoprimagemilang.com",
-    "kode": "[INV-28]",
-    "nama": "PT. Indoprima Gemilang"
-  },
-  {
-    "no": 29,
-    "email": "rahmatkarim.rk@gmail.com",
-    "kode": "[INV-29]",
-    "nama": "PT Biotis Prima Agrisindo"
-  },
-  {
-    "no": 30,
-    "email": "purchasing@sumbersetia.co.id",
-    "kode": "[INV-30]",
-    "nama": "PT. Sumber Setia Jaya Abadi"
-  },
-  {
-    "no": 31,
-    "email": "dionysiusiwang110@gmail.com",
-    "kode": "[INV-31]",
-    "nama": "PT Gelora Citra Kimia Abadi"
-  },
-  {
-    "no": 32,
-    "email": "adm01.ikp@gmail.com",
-    "kode": "[INV-32]",
-    "nama": "PT. Iniko karya persada"
-  },
-  {
-    "no": 33,
-    "email": "hse@pacificpaint.com",
-    "kode": "[INV-33]",
-    "nama": "PT. Pabrik Cat Dan Tinta Pacific"
-  },
-  {
-    "no": 34,
-    "email": "hse@pacificpaint.com",
-    "kode": "[INV-34]",
-    "nama": "PT. PABRIK CAT DAN TINTA PACIFIC"
-  },
-  {
-    "no": 35,
-    "email": "hse@pacificpaint.com",
-    "kode": "[INV-35]",
-    "nama": "PT Pabrik Cat dan Tinta Pacific"
-  },
-  {
-    "no": 36,
-    "email": "pelatihan@hakatex.com",
-    "kode": "[INV-36]",
-    "nama": "PT. Hakatex"
-  },
-  {
-    "no": 37,
-    "email": "purchasing@sumbersetia.co.id",
-    "kode": "[INV-37]",
-    "nama": "PT. Sumber Setia Jaya Abadi"
-  },
-  {
-    "no": 38,
-    "email": "iatmsby@gmail.com",
-    "kode": "[INV-38]",
-    "nama": "INDO ASIA"
-  },
-  {
-    "no": 39,
-    "email": "frieska.delfira-ulfah@external.merckgroup.com",
-    "kode": "[INV-39]",
-    "nama": "PT Merck Chemicals and Life Sciences"
-  },
-  {
-    "no": 40,
-    "email": "dhamuraduahido9874@gmail.com",
-    "kode": "[INV-40]",
-    "nama": "Konsultan"
-  },
-  {
-    "no": 41,
-    "email": "neli@trhi.co.id",
-    "kode": "[INV-41]",
-    "nama": "PT Tokai Rubber Auto Hose Indonesia"
-  },
-  {
-    "no": 42,
-    "email": "wie_soviarani@yahoo.com",
-    "kode": "[INV-42]",
-    "nama": "PT Central Texindo"
-  },
-  {
-    "no": 43,
-    "email": "samurai.batosaix18@gmail.com",
-    "kode": "[INV-43]",
-    "nama": "Pt eracita astania"
-  },
-  {
-    "no": 44,
-    "email": "darenidian2025@gmail.com",
-    "kode": "[INV-44]",
-    "nama": "PT Toya"
-  },
-  {
-    "no": 45,
-    "email": "herosekawan@yahoo.com",
-    "kode": "[INV-45]",
-    "nama": "PT. HERO SEKAWAN"
-  },
-  {
-    "no": 46,
-    "email": "anggoro.prabu@pancakraft.com",
-    "kode": "[INV-46]",
-    "nama": "PT Panca Kraft Pratama"
-  },
-  {
-    "no": 47,
-    "email": "hse.officer@k3pc.co.id",
-    "kode": "[INV-47]",
-    "nama": "Koperasi Karyawan Kaltim Prima Coal (K3PC)"
-  },
-  {
-    "no": 48,
-    "email": "istanatunggaljaya1@gmail.com",
-    "kode": "[INV-48]",
-    "nama": "PT.Mitra Megah Multitech"
-  },
-  {
-    "no": 49,
-    "email": "sumitomito31@gmail.com",
-    "kode": "[INV-49]",
-    "nama": "Pt.Perusahaan dagang dan industri waris"
-  },
-  {
-    "no": 50,
-    "email": "ridosyahlepi.s2@gmail.com",
-    "kode": "[INV-50]",
-    "nama": "PT Sukses Inti Makmur"
-  },
-  {
-    "no": 51,
-    "email": "ade@ipcompound.co.id",
-    "kode": "[INV-51]",
-    "nama": "PT Indonesia Polymer Compound"
-  },
-  {
-    "no": 52,
-    "email": "umum.krw@primayahospital.com",
-    "kode": "[INV-52]",
-    "nama": "PRIMAYA HOSPITAL KARAWANG"
-  },
-  {
-    "no": 53,
-    "email": "yanuarikas@yorozu.co.id",
-    "kode": "[INV-53]",
-    "nama": "PT Yorozu Automotive Indonesia"
-  },
-  {
-    "no": 54,
-    "email": "yuliantini.amri@gcm.co.id",
-    "kode": "[INV-54]",
-    "nama": "PT. Global Chemindo Megatrading"
-  }
-];
+    // Akun Sewa Zoom
+    const infoZoom = {
+        link: "https://us06web.zoom.us/j/88545635583?pwd=KNYafGatdQxaZpf2se1zJdbmJHeTIi.1",
+        meetingId: "885 4563 5583",
+        passcode: "3pilar2026"
+    };
 
+    // Breakout room dan kata kunci tema konsultasi yang diarahkan ke room tsb
+    const daftarRoom = [
+        { no: 1, nama: "Registrasi Impor dan Produsen", kunci: ["registrasi"] },
+        { no: 2, nama: "Notifikasi B3 Terbatas",        kunci: ["notifikasi"] },
+        { no: 3, nama: "Rekom Pengangkutan",            kunci: ["pengangkutan"] },
+        { no: 4, nama: "Pelaporan B3: PILAR",           kunci: ["pelaporan", "pilar"] }
+    ];
+
+    const BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+
+    // ================== STATE ==================
+    let pesertaMap = {};      // email (lowercase) -> { kode, nama, daftar: [{tema, sesi}] }
+    let jadwalAktif = "";     // contoh: "Jumat, 23 Oktober 2026"
+    let sedangMemuat = false;
+
+    // ================== UTILITAS ==================
+    function esc(s) {
+        return String(s == null ? "" : s).replace(/[&<>"']/g, c => (
+            { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+        ));
+    }
+
+    function formatJadwal(d) {
+        return "Jumat, " + d.getDate() + " " + BULAN[d.getMonth()] + " " + d.getFullYear();
+    }
+
+    // Daftar hari Jumat: hari ini (jika Jumat) atau Jumat berikutnya, lalu beberapa Jumat setelahnya
+    function hitungJumat() {
+        const hasil = [];
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7));
+        for (let i = 0; i < CONFIG.jumlahJumat; i++) {
+            hasil.push(formatJadwal(d));
+            d.setDate(d.getDate() + 7);
+        }
+        return hasil;
+    }
+
+    // Ambil data dari Google Sheets via Google Visualization API (JSONP, tanpa masalah CORS)
+    function ambilSheet(query) {
+        return new Promise((resolve, reject) => {
+            const cb = "gviz_cb_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+            const s = document.createElement("script");
+            const timer = setTimeout(() => { bersih(); reject(new Error("timeout")); }, 15000);
+            function bersih() { clearTimeout(timer); delete window[cb]; s.remove(); }
+            window[cb] = data => { bersih(); resolve(data); };
+            s.onerror = () => { bersih(); reject(new Error("gagal memuat")); };
+            s.src = "https://docs.google.com/spreadsheets/d/" + CONFIG.sheetId + "/gviz/tq"
+                + "?sheet=" + encodeURIComponent(CONFIG.sheetName)
+                + "&tq=" + encodeURIComponent(query)
+                + "&tqx=" + encodeURIComponent("out:json;responseHandler:" + cb);
+            document.head.appendChild(s);
+        });
+    }
+
+    function setStatus(teks, kelas, adaRetry) {
+        const el = document.getElementById("status");
+        el.className = "status " + (kelas || "");
+        el.innerHTML = esc(teks) + (adaRetry ? ' <a onclick="muatPeserta()">Coba lagi</a>' : "");
+    }
+
+    function cariRoom(tema) {
+        const t = String(tema || "").toLowerCase();
+        return daftarRoom.find(r => r.kunci.some(k => t.includes(k))) || null;
+    }
+
+    // ================== MUAT DATA PESERTA ==================
+    async function muatPeserta() {
+        if (sedangMemuat) return;
+        sedangMemuat = true;
+        const btn = document.getElementById("btnCek");
+        btn.disabled = true;
+        document.getElementById("result").style.display = "none";
+        setStatus("Memuat daftar peserta untuk " + jadwalAktif + "...");
+
+        const k = CONFIG.kolom;
+        // Hanya kolom yang dibutuhkan yang diambil (nomor WhatsApp dan nama pemohon tidak ikut terunduh)
+        const query = "select " + [k.email, k.perusahaan, k.tema, k.jadwal, k.sesi].join(", ")
+            + " where " + k.jadwal + " contains '" + jadwalAktif.replace(/'/g, "") + "'";
+
+        try {
+            const data = await ambilSheet(query);
+            if (data.status === "error") {
+                throw new Error((data.errors && data.errors[0] && data.errors[0].detailed_message) || "query error");
+            }
+            const baris = (data.table && data.table.rows) || [];
+            const peta = {};
+            let urut = 0;
+
+            baris.forEach(r => {
+                const c = r.c || [];
+                const val = i => (c[i] && c[i].v != null) ? String(c[i].v).trim() : "";
+                const email = val(0).toLowerCase();
+                if (!email) return;
+                const item = { tema: val(2), sesi: val(4) };
+                if (!peta[email]) {
+                    urut++;
+                    peta[email] = { kode: "[INV-" + urut + "]", nama: val(1), daftar: [item] };
+                } else {
+                    const ada = peta[email].daftar.some(x => x.tema === item.tema && x.sesi === item.sesi);
+                    if (!ada) peta[email].daftar.push(item);
+                }
+            });
+
+            pesertaMap = peta;
+            setStatus(urut + " email terdaftar untuk " + jadwalAktif + ".", "ok");
+            btn.disabled = false;
+        } catch (e) {
+            console.error(e);
+            pesertaMap = {};
+            setStatus("Gagal memuat daftar peserta. Pastikan Google Sheet dapat dilihat oleh siapa saja yang memiliki link.", "err", true);
+        } finally {
+            sedangMemuat = false;
+        }
+    }
+
+    // ================== VERIFIKASI ==================
     function cekUndangan() {
-        const inputEmail = document.getElementById('emailInput').value.trim().toLowerCase();
-        const resultDiv = document.getElementById('result');
-        
+        const inputEmail = document.getElementById("emailInput").value.trim().toLowerCase();
+        const resultDiv = document.getElementById("result");
+
         if (!inputEmail) {
-            alert('Silakan masukkan email terlebih dahulu.');
+            alert("Silakan masukkan email terlebih dahulu.");
             return;
         }
 
-        const peserta = daftarUndangan.find(p => p.email.toLowerCase() === inputEmail);
+        const peserta = pesertaMap[inputEmail];
 
         if (peserta) {
+            const kamar = new Set();
+            const baris = peserta.daftar.map(d => {
+                const room = cariRoom(d.tema);
+                if (room) kamar.add(room.no);
+                return "<div>🗓️ " + esc(d.sesi || "-") + " &mdash; " + esc(d.tema || "-")
+                    + (room ? " <em>(Room " + room.no + ")</em>" : "") + "</div>";
+            }).join("");
+
+            const roomHtml = daftarRoom.map(r =>
+                '<li class="' + (kamar.has(r.no) ? "mine" : "") + '"><strong>Room ' + r.no + ":</strong> "
+                + esc(r.nama) + (kamar.has(r.no) ? " ⬅ Room Anda" : "") + "</li>"
+            ).join("");
+
             resultDiv.className = "result-box success";
             resultDiv.style.display = "block";
             resultDiv.innerHTML = `
                 <h3 style="margin-top:0;">✔️ Email Terverifikasi!</h3>
-                <p>Halo <strong>${peserta.nama}</strong>, berikut adalah tata cara masuk ruangan:</p>
+                <p>Halo <strong>${esc(peserta.nama)}</strong>, Anda terdaftar pada <strong>${esc(jadwalAktif)}</strong>:</p>
+                <div class="reg-box">${baris}</div>
+                <p>Berikut adalah tata cara masuk ruangan:</p>
                 <ol>
                     <li>Buka aplikasi Zoom Anda.</li>
-                    <li>Sebelum join, <strong>WAJIB</strong> ganti nama tampilan (Display Name) Zoom Anda menjadi: <span class="highlight">${peserta.kode} ${peserta.nama}</span></li>
-                    <li>Meeting ID: 885 4563 5583</strong></li>
-                    <li>Gunakan Passcode berikut jika diminta: <strong>${infoZoom.passcode}</strong></li>
-                    <li>Host di Waiting Room hanya akan meng-<strong>ACC</strong> peserta yang menggunakan format kode <span class="highlight">${peserta.kode}</span>.</li>
-                    <li>Setelah berhasil masuk ke Main Room Zoom, silakan masuk ke salah satu <strong>Breakout Room</strong> sesuai kebutuhan Anda:
+                    <li>Sebelum join, <strong>WAJIB</strong> ganti nama tampilan (Display Name) Zoom Anda menjadi: <span class="highlight">${esc(peserta.kode)} ${esc(peserta.nama)}</span></li>
+                    <li>Meeting ID: <strong>${esc(infoZoom.meetingId)}</strong></li>
+                    <li>Gunakan Passcode berikut jika diminta: <strong>${esc(infoZoom.passcode)}</strong></li>
+                    <li>Host di Waiting Room hanya akan meng-<strong>ACC</strong> peserta yang menggunakan format kode <span class="highlight">${esc(peserta.kode)}</span>.</li>
+                    <li>Setelah berhasil masuk ke Main Room Zoom, silakan masuk ke <strong>Breakout Room</strong> sesuai tema konsultasi Anda:
                         <div class="room-box">
                             <div class="room-title">📌 Daftar Room yang Tersedia:</div>
-                            <ul class="room-list">
-                                <li><strong>Room 1:</strong> Registrasi Impor dan Produsen</li>
-                                <li><strong>Room 2:</strong> Notifikasi B3 Terbatas</li>
-                                <li><strong>Room 3:</strong> Rekom Pengangkutan</li>
-                                <li><strong>Room 4:</strong> Pelaporan B3: PILAR</li>
-                            </ul>
+                            <ul class="room-list">${roomHtml}</ul>
                         </div>
                     </li>
                 </ol>
                 <a href="${infoZoom.link}" target="_blank" rel="noopener noreferrer" class="btn-zoom">
-    KLIK UNTUK MASUK ZOOM
-</a>
+                    KLIK UNTUK MASUK ZOOM
+                </a>
             `;
         } else {
             resultDiv.className = "result-box error";
             resultDiv.style.display = "block";
             resultDiv.innerHTML = `
                 <h3 style="margin-top:0;">❌ Akses Ditolak</h3>
-                <p>Email <strong>${inputEmail}</strong> tidak terdaftar dalam undangan sistem kami. Silakan hubungi panitia jika ada kekeliruan.</p>
+                <p>Email <strong>${esc(inputEmail)}</strong> tidak terdaftar pada <strong>${esc(jadwalAktif)}</strong>. Pastikan Anda memilih tanggal yang sesuai dengan pendaftaran Anda, atau hubungi panitia jika ada kekeliruan.</p>
             `;
         }
     }
+
+    // ================== INISIALISASI ==================
+    (function init() {
+        const sel = document.getElementById("jadwalSelect");
+        hitungJumat().forEach(j => {
+            const o = document.createElement("option");
+            o.value = j;
+            o.textContent = j;
+            sel.appendChild(o);
+        });
+        jadwalAktif = sel.value;
+        sel.addEventListener("change", () => {
+            jadwalAktif = sel.value;
+            muatPeserta();
+        });
+        document.getElementById("emailInput").addEventListener("keydown", e => {
+            if (e.key === "Enter" && !document.getElementById("btnCek").disabled) cekUndangan();
+        });
+        muatPeserta();
+    })();
 </script>
 
 </body>
