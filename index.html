@@ -281,19 +281,19 @@
             const baris = peserta.daftar.map(d => {
                 const room = cariRoom(d.tema);
                 if (room) kamar.add(room.no);
-                return "<div>🗓️ " + esc(d.sesi || "-") + " &mdash; " + esc(d.tema || "-")
+                return "<div>ðŸ—“ï¸ " + esc(d.sesi || "-") + " &mdash; " + esc(d.tema || "-")
                     + (room ? " <em>(Room " + room.no + ")</em>" : "") + "</div>";
             }).join("");
 
             const roomHtml = daftarRoom.map(r =>
                 '<li class="' + (kamar.has(r.no) ? "mine" : "") + '"><strong>Room ' + r.no + ":</strong> "
-                + esc(r.nama) + (kamar.has(r.no) ? " ⬅ Room Anda" : "") + "</li>"
+                + esc(r.nama) + (kamar.has(r.no) ? " â¬… Room Anda" : "") + "</li>"
             ).join("");
 
             resultDiv.className = "result-box success";
             resultDiv.style.display = "block";
             resultDiv.innerHTML = `
-                <h3 style="margin-top:0;">✔️ Email Terverifikasi!</h3>
+                <h3 style="margin-top:0;">âœ”ï¸ Email Terverifikasi!</h3>
                 <p>Halo <strong>${esc(peserta.nama)}</strong>, Anda terdaftar pada <strong>${esc(jadwalAktif)}</strong>:</p>
                 <div class="reg-box">${baris}</div>
                 <p>Berikut adalah tata cara masuk ruangan:</p>
@@ -305,7 +305,7 @@
                     <li>Host di Waiting Room hanya akan meng-<strong>ACC</strong> peserta yang menggunakan format kode <span class="highlight">${esc(peserta.kode)}</span>.</li>
                     <li>Setelah berhasil masuk ke Main Room Zoom, silakan masuk ke <strong>Breakout Room</strong> sesuai tema konsultasi Anda:
                         <div class="room-box">
-                            <div class="room-title">📌 Daftar Room yang Tersedia:</div>
+                            <div class="room-title">ðŸ“Œ Daftar Room yang Tersedia:</div>
                             <ul class="room-list">${roomHtml}</ul>
                         </div>
                     </li>
@@ -318,7 +318,7 @@
             resultDiv.className = "result-box error";
             resultDiv.style.display = "block";
             resultDiv.innerHTML = `
-                <h3 style="margin-top:0;">❌ Akses Ditolak</h3>
+                <h3 style="margin-top:0;">âŒ Akses Ditolak</h3>
                 <p>Email <strong>${esc(inputEmail)}</strong> tidak terdaftar pada <strong>${esc(jadwalAktif)}</strong>. Pastikan Anda memilih tanggal yang sesuai dengan pendaftaran Anda, atau hubungi panitia jika ada kekeliruan.</p>
             `;
         }
