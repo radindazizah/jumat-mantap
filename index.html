@@ -150,16 +150,17 @@
     // Breakout room dan kata kunci tema konsultasi yang diarahkan ke room tsb
     const daftarRoom = [
         { no: 1, nama: "Registrasi Impor dan Produsen", kunci: ["registrasi"] },
-        { no: 2, nama: "Notifikasi B3 Terbatas",        kunci: ["notifikasi"] },
-        { no: 3, nama: "Rekom Pengangkutan",            kunci: ["pengangkutan"] },
-        { no: 4, nama: "Pelaporan B3: PILAR",           kunci: ["pelaporan", "pilar"] }
+        { no: 2, nama: "Notifikasi dan Pengangkutan B3", kunci: ["notifikasi", "pengangkutan"] },
+        { no: 3, nama: "Proper B3 dan PILAR",            kunci: ["proper", "pelaporan", "pilar"] }
     ];
 
     const BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
     // ================== STATE ==================
+    let semuaBaris = null;    // seluruh baris dari sheet (dimuat sekali)
     let pesertaMap = {};      // email (lowercase) -> { kode, nama, daftar: [{tema, sesi}] }
     let jadwalAktif = "";     // contoh: "Jumat, 23 Oktober 2026"
+    let tglAktif = null;      // objek Date dari Jumat yang dipilih
     let sedangMemuat = false;
 
     // ================== UTILITAS ==================
@@ -173,6 +174,10 @@
         return "Jumat, " + d.getDate() + " " + BULAN[d.getMonth()] + " " + d.getFullYear();
     }
 
+    function isoTgl(d) {
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+
     // Daftar hari Jumat: hari ini (jika Jumat) atau Jumat berikutnya, lalu beberapa Jumat setelahnya
     function hitungJumat() {
         const hasil = [];
@@ -180,8 +185,50 @@
         d.setHours(0, 0, 0, 0);
         d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7));
         for (let i = 0; i < CONFIG.jumlahJumat; i++) {
-            hasil.push(formatJadwal(d));
+            hasil.push(new Date(d.getTime()));
             d.setDate(d.getDate() + 7);
+        }
+        return hasil;
+    }
+
+    function samaTanggal(a, b) {
+        return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    }
+
+    function buatTanggal(y, m, d) {
+        const t = new Date(y, m, d);
+        return (t.getFullYear() === y && t.getMonth() === m && t.getDate() === d) ? t : null;
+    }
+
+    // Membaca isi kolom "Pilih Jadwal" dalam berbagai bentuk, lalu mengembalikan daftar kemungkinan tanggal:
+    //  - teks Indonesia  : "Jumat, 23 Oktober 2026"
+    //  - angka bertanda / : "10/23/2026" (bulan/hari/tahun) atau "23/10/2026" (hari/bulan/tahun)
+    //  - format ISO      : "2026-10-23"
+    //  - sel bertipe tanggal di Google Sheets (dikirim sebagai "Date(2026,9,23)")
+    function kandidatTanggal(cell) {
+        const hasil = [];
+        if (!cell) return hasil;
+        const v = cell.v, f = cell.f;
+        if (typeof v === "string") {
+            const md = v.match(/^Date\((\d+),\s*(\d+),\s*(\d+)/);
+            if (md) { hasil.push(new Date(+md[1], +md[2], +md[3])); return hasil; }
+        }
+        const teks = [f, v].filter(x => typeof x === "string" && x).join(" ");
+        let m = teks.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+        if (m) {
+            const idx = BULAN.findIndex(b => b.toLowerCase() === m[2].toLowerCase());
+            const t = idx >= 0 ? buatTanggal(+m[3], idx, +m[1]) : null;
+            if (t) hasil.push(t);
+        }
+        m = teks.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (m) { const t = buatTanggal(+m[1], +m[2] - 1, +m[3]); if (t) hasil.push(t); }
+        m = teks.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+        if (m) {
+            const a = +m[1], b = +m[2], y = +m[3];
+            const mdy = buatTanggal(y, a - 1, b);   // bulan/hari/tahun
+            const dmy = buatTanggal(y, b - 1, a);   // hari/bulan/tahun
+            if (mdy) hasil.push(mdy);
+            if (dmy) hasil.push(dmy);
         }
         return hasil;
     }
@@ -191,7 +238,7 @@
         return new Promise((resolve, reject) => {
             const cb = "gviz_cb_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
             const s = document.createElement("script");
-            const timer = setTimeout(() => { bersih(); reject(new Error("timeout")); }, 15000);
+            const timer = setTimeout(() => { bersih(); reject(new Error("timeout")); }, 20000);
             function bersih() { clearTimeout(timer); delete window[cb]; s.remove(); }
             window[cb] = data => { bersih(); resolve(data); };
             s.onerror = () => { bersih(); reject(new Error("gagal memuat")); };
@@ -206,7 +253,7 @@
     function setStatus(teks, kelas, adaRetry) {
         const el = document.getElementById("status");
         el.className = "status " + (kelas || "");
-        el.innerHTML = esc(teks) + (adaRetry ? ' <a onclick="muatPeserta()">Coba lagi</a>' : "");
+        el.innerHTML = esc(teks) + (adaRetry ? ' <a onclick="muatData()">Coba lagi</a>' : "");
     }
 
     function cariRoom(tema) {
@@ -215,53 +262,61 @@
     }
 
     // ================== MUAT DATA PESERTA ==================
-    async function muatPeserta() {
+    async function muatData() {
         if (sedangMemuat) return;
         sedangMemuat = true;
         const btn = document.getElementById("btnCek");
         btn.disabled = true;
         document.getElementById("result").style.display = "none";
-        setStatus("Memuat daftar peserta untuk " + jadwalAktif + "...");
+        setStatus("Memuat daftar peserta...");
 
         const k = CONFIG.kolom;
         // Hanya kolom yang dibutuhkan yang diambil (nomor WhatsApp dan nama pemohon tidak ikut terunduh)
-        const query = "select " + [k.email, k.perusahaan, k.tema, k.jadwal, k.sesi].join(", ")
-            + " where " + k.jadwal + " contains '" + jadwalAktif.replace(/'/g, "") + "'";
+        const query = "select " + [k.email, k.perusahaan, k.tema, k.jadwal, k.sesi].join(", ");
 
         try {
             const data = await ambilSheet(query);
             if (data.status === "error") {
                 throw new Error((data.errors && data.errors[0] && data.errors[0].detailed_message) || "query error");
             }
-            const baris = (data.table && data.table.rows) || [];
-            const peta = {};
-            let urut = 0;
-
-            baris.forEach(r => {
-                const c = r.c || [];
-                const val = i => (c[i] && c[i].v != null) ? String(c[i].v).trim() : "";
-                const email = val(0).toLowerCase();
-                if (!email) return;
-                const item = { tema: val(2), sesi: val(4) };
-                if (!peta[email]) {
-                    urut++;
-                    peta[email] = { kode: "[INV-" + urut + "]", nama: val(1), daftar: [item] };
-                } else {
-                    const ada = peta[email].daftar.some(x => x.tema === item.tema && x.sesi === item.sesi);
-                    if (!ada) peta[email].daftar.push(item);
-                }
-            });
-
-            pesertaMap = peta;
-            setStatus(urut + " email terdaftar untuk " + jadwalAktif + ".", "ok");
-            btn.disabled = false;
+            semuaBaris = (data.table && data.table.rows) || [];
+            terapkanJadwal();
         } catch (e) {
             console.error(e);
+            semuaBaris = null;
             pesertaMap = {};
             setStatus("Gagal memuat daftar peserta. Pastikan Google Sheet dapat dilihat oleh siapa saja yang memiliki link.", "err", true);
         } finally {
             sedangMemuat = false;
         }
+    }
+
+    // Saring baris sesuai Jumat yang dipilih, lalu bentuk daftar peserta + kode INV
+    function terapkanJadwal() {
+        if (!semuaBaris) return;
+        const peta = {};
+        let urut = 0;
+
+        semuaBaris.forEach(r => {
+            const c = r.c || [];
+            if (!kandidatTanggal(c[3]).some(t => samaTanggal(t, tglAktif))) return;
+            const val = i => (c[i] && c[i].v != null) ? String(c[i].v).trim() : "";
+            const email = val(0).toLowerCase();
+            if (!email) return;
+            const item = { tema: val(2), sesi: val(4) };
+            if (!peta[email]) {
+                urut++;
+                peta[email] = { kode: "[INV-" + urut + "]", nama: val(1), daftar: [item] };
+            } else {
+                const ada = peta[email].daftar.some(x => x.tema === item.tema && x.sesi === item.sesi);
+                if (!ada) peta[email].daftar.push(item);
+            }
+        });
+
+        pesertaMap = peta;
+        document.getElementById("result").style.display = "none";
+        setStatus(urut + " email terdaftar untuk " + jadwalAktif + ".", "ok");
+        document.getElementById("btnCek").disabled = false;
     }
 
     // ================== VERIFIKASI ==================
@@ -327,21 +382,26 @@
     // ================== INISIALISASI ==================
     (function init() {
         const sel = document.getElementById("jadwalSelect");
-        hitungJumat().forEach(j => {
+        const daftarJumat = hitungJumat();
+        daftarJumat.forEach(d => {
             const o = document.createElement("option");
-            o.value = j;
-            o.textContent = j;
+            o.value = isoTgl(d);
+            o.textContent = formatJadwal(d);
             sel.appendChild(o);
         });
-        jadwalAktif = sel.value;
+        function pilih() {
+            tglAktif = daftarJumat[sel.selectedIndex];
+            jadwalAktif = formatJadwal(tglAktif);
+        }
+        pilih();
         sel.addEventListener("change", () => {
-            jadwalAktif = sel.value;
-            muatPeserta();
+            pilih();
+            if (semuaBaris) terapkanJadwal(); else muatData();
         });
         document.getElementById("emailInput").addEventListener("keydown", e => {
             if (e.key === "Enter" && !document.getElementById("btnCek").disabled) cekUndangan();
         });
-        muatPeserta();
+        muatData();
     })();
 </script>
 
